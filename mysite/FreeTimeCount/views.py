@@ -2,10 +2,13 @@
 
 from django.template.response import TemplateResponse
 from FreeTimeCount.models import *
+from django.http import StreamingHttpResponse
 import re
 import string
 import datetime
 import json
+import copy
+import xlwt
 
 # Create your views here.
 
@@ -39,14 +42,11 @@ def date(request):
 
 		obj = re.compile('(\d+)-(\d+)-(\d+)')
 		end_date = obj.findall(end_date)
-		print end_date
-		print end_date[0][0] + end_date[0][1] + end_date[0][2]
 
 		end_date = datetime.datetime(string.atoi(end_date[0][0]), string.atoi(end_date[0][1]), string.atoi(end_date[0][2]))
 		days = (end_date - start_date).days
 
 		week_day = end_date.strftime("%w")
-		print "week_day=" + week_day
 
 		is_single_week = 1 if (days / 7) % 2 == 0 else 0
 
@@ -72,8 +72,8 @@ def date(request):
 						if is_single_week:
 							if (course.weekday[1] == str(week_day)) and (course.weekday[0] == '0' or course.weekday[0] == '1'):
 								course_time = course.time.strip("[']")
-								print "course_time=" + course_time
 								masses = course_time.split(",")
+
 
 								for mass in masses:
 									if mass == '1' or mass == '2':
@@ -91,7 +91,7 @@ def date(request):
 						else:
 							if (course.weekday[1] == str(week_day)) and (course.weekday[0] == '0' or course.weekday[0] == '2'):
 								course_time = course.time.strip("[']")
-								print "course_time=" + course_time
+								
 								masses = course_time.split(",")
 
 								for mass in masses:
@@ -171,31 +171,24 @@ def distribute(request):
 	is_time9_10_free = True
 	is_time11_12_free = True
 
+	student_grade = {}
+	result_tmp = []
+	free_student = []
+
 	if request.POST:
 
-		for is_single_week in range(0, 2):
+		if request.POST['submit'] == u"自动分配":
 
-			for week_day in range(1, 8):
+			for is_single_week in range(0, 2):
 
-				time1_2 = []
-				time3_4 = []
-				time5_6 = []
-				time7_8 = []
-				time9_10 = []
-				time11_12 = []
+				for week_day in range(1, 8):
 
-				is_time1_2_free = True
-				is_time3_4_free = True
-				is_time5_6_free = True
-				is_time7_8_free = True
-				is_time9_10_free = True
-				is_time11_12_free = True
-
-				for member in Member.objects.all():
-
-
-					if member.stuID[3] != '4':
-						continue
+					time1_2 = []
+					time3_4 = []
+					time5_6 = []
+					time7_8 = []
+					time9_10 = []
+					time11_12 = []
 
 					is_time1_2_free = True
 					is_time3_4_free = True
@@ -204,126 +197,269 @@ def distribute(request):
 					is_time9_10_free = True
 					is_time11_12_free = True
 
-					student = Students.objects.filter(stu_no=member.stuID)
+					for member in Member.objects.all():
 
-					courseTable = CourseTable.objects.filter(student=student)
-					for ct in courseTable:
-						courses = Course.objects.filter(course_id=ct.course_id)
-						for course in courses:
-							if course.weekday != '0':
 
-								if is_single_week:
-									if (course.weekday[1] == str(week_day)) and (course.weekday[0] == '0' or course.weekday[0] == '1'):
-										course_time = course.time.strip("[']")
-										print "course_time=" + course_time
-										masses = course_time.split(",")
+						if member.stuID[3] != '4':
+							continue
 
-										for mass in masses:
-											if mass == '1' or mass == '2':
-												is_time1_2_free = False
-											if mass == '3' or mass == '4':
-												is_time3_4_free = False
-											if mass == '5' or mass == '6':
-												is_time5_6_free = False
-											if mass == '7' or mass == '8':
-												is_time7_8_free = False
-											if mass == '9' or mass == '10':
-												is_time9_10_free = False
-											if mass == '11' or mass == '12':
-												is_time11_12_free = False
-								else:
-									if (course.weekday[1] == str(week_day)) and (course.weekday[0] == '0' or course.weekday[0] == '2'):
-										course_time = course.time.strip("[']")
-										print "course_time=" + course_time
-										masses = course_time.split(",")
+						is_time1_2_free = True
+						is_time3_4_free = True
+						is_time5_6_free = True
+						is_time7_8_free = True
+						is_time9_10_free = True
+						is_time11_12_free = True
 
-										for mass in masses:
-											if mass == '1' or mass == '2':
-												is_time1_2_free = False
-											if mass == '3' or mass == '4':
-												is_time3_4_free = False
-											if mass == '5' or mass == '6':
-												is_time5_6_free = False
-											if mass == '7' or mass == '8':
-												is_time7_8_free = False
-											if mass == '9' or mass == '10':
-												is_time9_10_free = False
-											if mass == '11' or mass == '12':
-												is_time11_12_free = False
+						student = Students.objects.filter(stu_no=member.stuID)
 
-					if is_time1_2_free:
-						time1_2.append(student[0].name)
-					if is_time3_4_free:
-						time3_4.append(student[0].name)
-					if is_time5_6_free:
-						time5_6.append(student[0].name)
-					if is_time7_8_free:
-						time7_8.append(student[0].name)
-					if is_time9_10_free:
-						time9_10.append(student[0].name)
-					if is_time11_12_free:
-						time11_12.append(student[0].name)
+						student_grade[student[0].name] = 0
 
-				if is_single_week == 0:
+						courseTable = CourseTable.objects.filter(student=student)
+						for ct in courseTable:
+							courses = Course.objects.filter(course_id=ct.course_id)
+							for course in courses:
+								if course.weekday != '0':
 
-					result[week_day - 1][0] = time1_2
-					result[week_day - 1][1] = time3_4
-					result[week_day - 1][2] = time5_6
-					result[week_day - 1][3] = time7_8
-					result[week_day - 1][4] = time9_10
-					result[week_day - 1][5] = time11_12
+									if is_single_week:
+										if (course.weekday[1] == str(week_day)) and (course.weekday[0] == '0' or course.weekday[0] == '1'):
+											course_time = course.time.strip("[']")
+										
+											masses = course_time.split(",")
+
+											for mass in masses:
+												if mass == '1' or mass == '2':
+													is_time1_2_free = False
+												if mass == '3' or mass == '4':
+													is_time3_4_free = False
+												if mass == '5' or mass == '6':
+													is_time5_6_free = False
+												if mass == '7' or mass == '8':
+													is_time7_8_free = False
+												if mass == '9' or mass == '10':
+													is_time9_10_free = False
+												if mass == '11' or mass == '12':
+													is_time11_12_free = False
+									else:
+										if (course.weekday[1] == str(week_day)) and (course.weekday[0] == '0' or course.weekday[0] == '2'):
+											course_time = course.time.strip("[']")
+											
+											masses = course_time.split(",")
+
+											for mass in masses:
+												if mass == '1' or mass == '2':
+													is_time1_2_free = False
+												if mass == '3' or mass == '4':
+													is_time3_4_free = False
+												if mass == '5' or mass == '6':
+													is_time5_6_free = False
+												if mass == '7' or mass == '8':
+													is_time7_8_free = False
+												if mass == '9' or mass == '10':
+													is_time9_10_free = False
+												if mass == '11' or mass == '12':
+													is_time11_12_free = False
+
+						if is_time1_2_free:
+							time1_2.append(student[0].name)
+						if is_time3_4_free:
+							time3_4.append(student[0].name)
+						if is_time5_6_free:
+							time5_6.append(student[0].name)
+						if is_time7_8_free:
+							time7_8.append(student[0].name)
+						if is_time9_10_free:
+							time9_10.append(student[0].name)
+						if is_time11_12_free:
+							time11_12.append(student[0].name)
+
+					if is_single_week == 0:
+
+						result[week_day - 1][0] = time1_2
+						result[week_day - 1][1] = time3_4
+						result[week_day - 1][2] = time5_6
+						result[week_day - 1][3] = time7_8
+						result[week_day - 1][4] = time9_10
+						result[week_day - 1][5] = time11_12
+					else:
+						for each_student in time1_2:
+							if each_student not in result[week_day - 1][0]:
+								result[week_day - 1][0].append(each_student + u"(单周)")
+						for each_student in time3_4:
+							if each_student not in result[week_day - 1][1]:
+								result[week_day - 1][1].append(each_student + u"(单周)")
+						for each_student in time5_6:
+							if each_student not in result[week_day - 1][2]:
+								result[week_day - 1][2].append(each_student + u"(单周)")
+						for each_student in time7_8:
+							if each_student not in result[week_day - 1][3]:
+								result[week_day - 1][3].append(each_student + u"(单周)")
+						for each_student in time9_10:
+							if each_student not in result[week_day - 1][4]:
+								result[week_day - 1][4].append(each_student + u"(单周)")
+						for each_student in time11_12:
+							if each_student not in result[week_day - 1][5]:
+								result[week_day - 1][5].append(each_student + u"(单周)")
+
+
+						for index,each_student in enumerate(result[week_day - 1][0]):
+							if each_student.replace(u"(单周)", "") not in time1_2:
+								result[week_day - 1][0][index] = result[week_day - 1][0][index] + u"(双周)"
+						for index,each_student in enumerate(result[week_day - 1][1]):
+							if each_student.replace(u"(单周)", "") not in time3_4:
+								result[week_day - 1][1][index] = result[week_day - 1][1][index] + u"(双周)"
+						for index,each_student in enumerate(result[week_day - 1][2]):
+							if each_student.replace(u"(单周)", "") not in time5_6:
+								result[week_day - 1][2][index] = result[week_day - 1][2][index] + u"(双周)"
+						for index,each_student in enumerate(result[week_day - 1][3]):
+							if each_student.replace(u"(单周)", "") not in time7_8:
+								result[week_day - 1][3][index] = result[week_day - 1][3][index] + u"(双周)"
+						for index,each_student in enumerate(result[week_day - 1][4]):
+							if each_student.replace(u"(单周)", "") not in time9_10:
+								result[week_day - 1][4][index] = result[week_day - 1][4][index] + u"(双周)"
+						for index,each_student in enumerate(result[week_day - 1][5]):
+							if each_student.replace(u"(单周)", "") not in time11_12:
+								result[week_day - 1][5][index] = result[week_day - 1][5][index] + u"(双周)"
+
+
+			
+
+
+			result_tmp = copy.deepcopy(result)
+
+			for i in range(0, 5):
+				for j in range(1, 4):
+					for each_student in result[i][j]:
+						if each_student.find("(") != -1:
+							each_student = each_student.replace(u"(双周)", "")
+							each_student = each_student.replace(u"(单周)", "")
+							student_grade[each_student] = student_grade[each_student] + 0.5
+						else:
+							student_grade[each_student] = student_grade[each_student] + 1
+
+			for key in student_grade:
+				print key + "=" + str(student_grade[key])
+
+			selected_student = []
+
+			tmp = []
+
+			for i in range(0,5):
+				for j in range(1, 4):
+					tmp.append((i, j, len(result[i][j])))
+
+			#sort
+
+			for i in range(0, len(tmp)):
+				for j in range(i + 1, len(tmp)):
+					if tmp[i][2] > tmp[j][2]:
+						tmp[i],tmp[j] = tmp[j],tmp[i]
+
+			for i in range(0, 5):
+				for j in range(1, 4):
+					for m in range(0, len(result[i][j])):
+						for n in range(m + 1, len(result[i][j])):
+							tmp_m = result[i][j][m].replace(u"(双周)", "")
+							tmp_m = tmp_m.replace(u"(单周)", "")
+							tmp_n = result[i][j][n].replace(u"(双周)", "")
+							tmp_n = tmp_n.replace(u"(单周)", "")
+							if student_grade[tmp_m] > student_grade[tmp_n]:
+								result[i][j][m],result[i][j][n] = result[i][j][n], result[i][j][m]
+
+			print tmp
+
+			#distribute
+
+			for i in range(0, len(tmp)):
+				if len(result[tmp[i][0]][tmp[i][1]]) <= 1:
+					for each in result[tmp[i][0]][tmp[i][1]]:
+						tmp_each = each.replace(u"(双周)", "")
+						tmp_each = tmp_each.replace(u"(单周)", "")
+						if tmp_each not in selected_student:
+							selected_student.append(tmp_each)
+
 				else:
-					for each_student in time1_2:
-						if each_student not in result[week_day - 1][0]:
-							result[week_day - 1][0].append(each_student + u"(单周)")
-					for each_student in time3_4:
-						if each_student not in result[week_day - 1][1]:
-							result[week_day - 1][1].append(each_student + u"(单周)")
-					for each_student in time5_6:
-						if each_student not in result[week_day - 1][2]:
-							result[week_day - 1][2].append(each_student + u"(单周)")
-					for each_student in time7_8:
-						if each_student not in result[week_day - 1][3]:
-							result[week_day - 1][3].append(each_student + u"(单周)")
-					for each_student in time9_10:
-						if each_student not in result[week_day - 1][4]:
-							result[week_day - 1][4].append(each_student + u"(单周)")
-					for each_student in time11_12:
-						if each_student not in result[week_day - 1][5]:
-							result[week_day - 1][5].append(each_student + u"(单周)")
+					count = 0
+					tmp_list = []
+					for each in result[tmp[i][0]][tmp[i][1]]:
+						tmp_each = each.replace(u"(双周)", "")
+						tmp_each = tmp_each.replace(u"(单周)", "")
+						if tmp_each not in selected_student:
 
+							if count == 1:
+								if (each.find(u"(双周)") != -1 and tmp_list[0].find(u"(双周)") != -1) or (each.find(u"(单周)") != -1 and tmp_list[0].find(u"(单周)") != -1):
+									continue
 
-					for index,each_student in enumerate(result[week_day - 1][0]):
-						if each_student.replace(u"(单周)", "") not in time1_2:
-							result[week_day - 1][0][index] = result[week_day - 1][0][index] + u"(双周)"
-					for index,each_student in enumerate(result[week_day - 1][1]):
-						if each_student.replace(u"(单周)", "") not in time3_4:
-							result[week_day - 1][1][index] = result[week_day - 1][1][index] + u"(双周)"
-					for index,each_student in enumerate(result[week_day - 1][2]):
-						if each_student.replace(u"(单周)", "") not in time5_6:
-							result[week_day - 1][2][index] = result[week_day - 1][2][index] + u"(双周)"
-					for index,each_student in enumerate(result[week_day - 1][3]):
-						if each_student.replace(u"(单周)", "") not in time7_8:
-							result[week_day - 1][3][index] = result[week_day - 1][3][index] + u"(双周)"
-					for index,each_student in enumerate(result[week_day - 1][4]):
-						if each_student.replace(u"(单周)", "") not in time9_10:
-							result[week_day - 1][4][index] = result[week_day - 1][4][index] + u"(双周)"
-					for index,each_student in enumerate(result[week_day - 1][5]):
-						if each_student.replace(u"(单周)", "") not in time11_12:
-							result[week_day - 1][5][index] = result[week_day - 1][5][index] + u"(双周)"
+							selected_student.append(tmp_each)
+							tmp_list.append(each)
+							count = count + 1
 
+						if count == 2:
+							break
 
-							
+					result[tmp[i][0]][tmp[i][1]] = tmp_list
+
+			for i in range(0, 5):
+				result[i][0] = []
 
 
 
+			for member in Member.objects.all():
+				student = Students.objects.filter(stu_no=member.stuID)
+				if (student[0].name not in selected_student) and student[0].stu_no[3] == '4':
+					free_student.append(student[0].name)
+
+			book = xlwt.Workbook(encoding='utf-8', style_compression=0)
+			sheet1 = book.add_sheet(u"值班表", cell_overwrite_ok=True)
+			sheet2 = book.add_sheet(u"参考", cell_overwrite_ok=True)
+
+			style = xlwt.easyxf('align: wrap on')
+			
+			text = [u'课程表', u'星期一', u'星期二', u'星期三', u'星期四', u'星期五']
+
+			for index,each in enumerate(text):
+				sheet1.write(0, index, each, style)
+				sheet2.write(0, index, each, style)
+				sheet1.col(index).width = 10000
+				sheet2.col(index).width = 10000
+
+			text = [u'第1、2节', u'第3、4节', u'第5、6节', u'第7、8节']
+
+			for index,each in enumerate(text):
+				sheet1.row(index + 1).height = 500
+				sheet2.row(index + 1).height = 2000
+				sheet1.write(index + 1, 0, each, style)
+				sheet2.write(index + 1, 0, each, style)
+				for i in range(0, 5):
+					sheet1.write(index + 1, i + 1, ",".join(result[i][index]), style)
+					sheet2.write(index + 1, i + 1, ",".join(result_tmp[i][index]), style)
+
+			book.save("FreeTimeCount/info/distribute.xls")
 
 
-						
+
+		else:
+			def file_iterator(file_name, chunk_size=512):
+			    with open(file_name) as f:
+			      while True:
+			        c = f.read(chunk_size)
+			        if c:
+			          yield c
+			        else:
+			          break
+
+
+			the_file_name = "FreeTimeCount/info/distribute.xls"
+			response = StreamingHttpResponse(file_iterator(the_file_name))
+			response['Content-Type'] = 'application/octet-stream'
+			response['Content-Disposition'] = 'attachment;filename="{0}"'.format(the_file_name)
+
+  			return response
 	else:
 		print "not a post"
 
-	response = TemplateResponse(request, 'FreeTimeCount/distribute.html', {"result" : json.dumps(result)})
+	print result_tmp
+
+	response = TemplateResponse(request, 'FreeTimeCount/distribute.html', {"result" : json.dumps(result), "result_tmp" : json.dumps(result_tmp), "free_student" : json.dumps(free_student)})
 	return response
 
 

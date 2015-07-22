@@ -30,8 +30,8 @@
             .box1{
             position: relative;
             overflow: hidden;
-            margin-left: 300px;
-            margin-top:5px;
+            width: 800px;
+            margin: auto;
         }
             .box2{
             position: relative;
@@ -90,14 +90,14 @@
         }
 </style>
 <script type="text/javascript">
-    function displayInfo(info) {
+    function displayInfo(info, id_base) {
         info = info.replace(/&quot;/g, "\"");    
         info = JSON.parse(info);
 
 
         for(i = 1; i <= 5; i++) {
             for(j = 0; j < 4; j++) {
-                ele = document.getElementById("td" + i + j);
+                ele = document.getElementById(id_base + i + j);
                 ele.innerHTML = info[i - 1][j] == 0 ? "" : info[i - 1][j];
             }
         }
@@ -106,7 +106,7 @@
 </head>
 <body>
     
-	<h1>闲时成员值班表分配</h1>
+	<h1>参考值班表</h1>
     <table border="1">
     <tbody>
         <tr>
@@ -132,17 +132,48 @@
         </script>
     </tbody>
     </table>
+    <p>没有排到值班的人员有<script type="text/javascript">document.write("{{ free_student }}");</script></p>
+    <p>参考表:</p>
+    <table border="1">
+    <tbody>
+        <tr>
+            <td>课程表</td>
+            <td>星期一</td>
+            <td>星期二</td>
+            <td>星期三</td>
+            <td>星期四</td>
+            <td>星期五</td>
+        </tr>
+        <script type="text/javascript">
+            str_arr = ["第1、2节", "第3、4节", "第5、6节", "第7、8节"];
+
+            for(i = 0; i < 4; i++) {
+                document.write("<tr><td>" + str_arr[i] + "</td>")
+                for(j = 1; j <= 5; j++) {
+                    
+                    document.write("<td id=\"td_tmp" + j + i + "\"></td>");
+                }
+                document.write("</tr>");
+                
+            }
+        </script>
+    </tbody>
+    </table>
+
     <div class="box1">
         <div class="box2">
         	<form action="#" method="post">
             {% csrf_token %}
             <p>
-                <input type="submit" class="btn" value="随机生成" />
-                <button class="btn1">excel表格下载</button>
+                <input type="submit" class="btn" name="submit" value="自动分配" />
+                <input type="submit" class="btn1" name="submit" value="excel表格下载" />
             </p>
             </form>
         </div>
     </div>
-    <script type="text/javascript">displayInfo("{{result}}");</script>
+    <script type="text/javascript">
+        displayInfo("{{result}}", "td");
+        displayInfo("{{result_tmp}}", "td_tmp");
+    </script>
 </body>
 </html>

@@ -100,7 +100,14 @@
 
 		ele = document.getElementById("td" + x + y);
 		ele.setAttribute("rowspan", rowspan);
-		ele.innerHTML = content;
+
+        if(ele.innerHTML) {
+            ele.innerHTML += "<br>" + content;
+        }
+        else {
+            ele.innerHTML = content;
+        }
+		
 
 		for(i = 0; i < rowspan - 1; i++) {
 			ele = document.getElementById("td" + x + (y + i + 1));
