@@ -5,6 +5,7 @@ from FreeTimeCount.models import *
 import re
 import string
 import datetime
+import json
 
 # Create your views here.
 
@@ -154,8 +155,175 @@ def date(request):
 
 def distribute(request):
 
+	result = [[0 for i in range(6)] for j in range(7)]
+	
+	time1_2 = []
+	time3_4 = []
+	time5_6 = []
+	time7_8 = []
+	time9_10 = []
+	time11_12 = []
 
-	response = TemplateResponse(request, 'FreeTimeCount/distribute.html', {})
+	is_time1_2_free = True
+	is_time3_4_free = True
+	is_time5_6_free = True
+	is_time7_8_free = True
+	is_time9_10_free = True
+	is_time11_12_free = True
+
+	if request.POST:
+
+		for is_single_week in range(0, 2):
+
+			for week_day in range(1, 8):
+
+				time1_2 = []
+				time3_4 = []
+				time5_6 = []
+				time7_8 = []
+				time9_10 = []
+				time11_12 = []
+
+				is_time1_2_free = True
+				is_time3_4_free = True
+				is_time5_6_free = True
+				is_time7_8_free = True
+				is_time9_10_free = True
+				is_time11_12_free = True
+
+				for member in Member.objects.all():
+
+
+					if member.stuID[3] != '4':
+						continue
+
+					is_time1_2_free = True
+					is_time3_4_free = True
+					is_time5_6_free = True
+					is_time7_8_free = True
+					is_time9_10_free = True
+					is_time11_12_free = True
+
+					student = Students.objects.filter(stu_no=member.stuID)
+
+					courseTable = CourseTable.objects.filter(student=student)
+					for ct in courseTable:
+						courses = Course.objects.filter(course_id=ct.course_id)
+						for course in courses:
+							if course.weekday != '0':
+
+								if is_single_week:
+									if (course.weekday[1] == str(week_day)) and (course.weekday[0] == '0' or course.weekday[0] == '1'):
+										course_time = course.time.strip("[']")
+										print "course_time=" + course_time
+										masses = course_time.split(",")
+
+										for mass in masses:
+											if mass == '1' or mass == '2':
+												is_time1_2_free = False
+											if mass == '3' or mass == '4':
+												is_time3_4_free = False
+											if mass == '5' or mass == '6':
+												is_time5_6_free = False
+											if mass == '7' or mass == '8':
+												is_time7_8_free = False
+											if mass == '9' or mass == '10':
+												is_time9_10_free = False
+											if mass == '11' or mass == '12':
+												is_time11_12_free = False
+								else:
+									if (course.weekday[1] == str(week_day)) and (course.weekday[0] == '0' or course.weekday[0] == '2'):
+										course_time = course.time.strip("[']")
+										print "course_time=" + course_time
+										masses = course_time.split(",")
+
+										for mass in masses:
+											if mass == '1' or mass == '2':
+												is_time1_2_free = False
+											if mass == '3' or mass == '4':
+												is_time3_4_free = False
+											if mass == '5' or mass == '6':
+												is_time5_6_free = False
+											if mass == '7' or mass == '8':
+												is_time7_8_free = False
+											if mass == '9' or mass == '10':
+												is_time9_10_free = False
+											if mass == '11' or mass == '12':
+												is_time11_12_free = False
+
+					if is_time1_2_free:
+						time1_2.append(student[0].name)
+					if is_time3_4_free:
+						time3_4.append(student[0].name)
+					if is_time5_6_free:
+						time5_6.append(student[0].name)
+					if is_time7_8_free:
+						time7_8.append(student[0].name)
+					if is_time9_10_free:
+						time9_10.append(student[0].name)
+					if is_time11_12_free:
+						time11_12.append(student[0].name)
+
+				if is_single_week == 0:
+
+					result[week_day - 1][0] = time1_2
+					result[week_day - 1][1] = time3_4
+					result[week_day - 1][2] = time5_6
+					result[week_day - 1][3] = time7_8
+					result[week_day - 1][4] = time9_10
+					result[week_day - 1][5] = time11_12
+				else:
+					for each_student in time1_2:
+						if each_student not in result[week_day - 1][0]:
+							result[week_day - 1][0].append(each_student + u"(单周)")
+					for each_student in time3_4:
+						if each_student not in result[week_day - 1][1]:
+							result[week_day - 1][1].append(each_student + u"(单周)")
+					for each_student in time5_6:
+						if each_student not in result[week_day - 1][2]:
+							result[week_day - 1][2].append(each_student + u"(单周)")
+					for each_student in time7_8:
+						if each_student not in result[week_day - 1][3]:
+							result[week_day - 1][3].append(each_student + u"(单周)")
+					for each_student in time9_10:
+						if each_student not in result[week_day - 1][4]:
+							result[week_day - 1][4].append(each_student + u"(单周)")
+					for each_student in time11_12:
+						if each_student not in result[week_day - 1][5]:
+							result[week_day - 1][5].append(each_student + u"(单周)")
+
+
+					for index,each_student in enumerate(result[week_day - 1][0]):
+						if each_student.replace(u"(单周)", "") not in time1_2:
+							result[week_day - 1][0][index] = result[week_day - 1][0][index] + u"(双周)"
+					for index,each_student in enumerate(result[week_day - 1][1]):
+						if each_student.replace(u"(单周)", "") not in time3_4:
+							result[week_day - 1][1][index] = result[week_day - 1][1][index] + u"(双周)"
+					for index,each_student in enumerate(result[week_day - 1][2]):
+						if each_student.replace(u"(单周)", "") not in time5_6:
+							result[week_day - 1][2][index] = result[week_day - 1][2][index] + u"(双周)"
+					for index,each_student in enumerate(result[week_day - 1][3]):
+						if each_student.replace(u"(单周)", "") not in time7_8:
+							result[week_day - 1][3][index] = result[week_day - 1][3][index] + u"(双周)"
+					for index,each_student in enumerate(result[week_day - 1][4]):
+						if each_student.replace(u"(单周)", "") not in time9_10:
+							result[week_day - 1][4][index] = result[week_day - 1][4][index] + u"(双周)"
+					for index,each_student in enumerate(result[week_day - 1][5]):
+						if each_student.replace(u"(单周)", "") not in time11_12:
+							result[week_day - 1][5][index] = result[week_day - 1][5][index] + u"(双周)"
+
+
+							
+
+
+
+
+
+						
+	else:
+		print "not a post"
+
+	response = TemplateResponse(request, 'FreeTimeCount/distribute.html', {"result" : json.dumps(result)})
 	return response
 
 
